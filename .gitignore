@@ -1,0 +1,32 @@
+*.db
+*.
+data/
+
+# === Ambientes Virtuais (Python Venv) ===
+.venv/
+venv/
+ENV/
+env/
+python/
+
+# === Arquivos de Configuração e Chaves (Segurança!) ===
+.env
+.env.local
+.env.secret
+chaves.json
+
+# === Caches do Python e do Sistema ===
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+
+# === Arquivos do Sistema Operacional ===
+.DS_Store
+Thumbs.db
+
+# === Logs e Imagens de Teste ===
+*.log
+# Se você não quiser subir as imagens geradas pelo draw_mermaid_png:
+# *.png
