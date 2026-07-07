@@ -1,3 +1,4 @@
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -12,6 +13,8 @@ class PublicacaoDJEN(BaseModel):
     id_publicacao: int = Field(alias="id")
     numero_processo: str = Field(alias="numero_processo")
     texto: str = Field(alias="texto")
+    # Nome real do campo na API (confirmado em execução real) -- não é
+    # "data_publicacao" como eu havia assumido antes de testar.
     data_disponibilizacao: str = Field(alias="data_disponibilizacao")
     hash_comunicacao: str = Field(alias="hash")
     sigla_tribunal: str | None = Field(default=None, alias="siglaTribunal")
@@ -21,14 +24,6 @@ class PublicacaoDJEN(BaseModel):
 
 
 class ClassificacaoPublicacao(BaseModel):
-    """
-    Saída estruturada da IA ao interpretar o texto de uma publicação.
-
-    Esse é o contrato que força o LLM a responder de um jeito que o
-    resto do sistema consegue processar de forma confiável -- em vez
-    de receber um parágrafo solto e precisar re-interpretar ele de
-    novo com regex/heurística.
-    """
 
     tem_prazo: bool = Field(
         description=(
@@ -38,11 +33,22 @@ class ClassificacaoPublicacao(BaseModel):
             "ação imediata, ou publicação meramente informativa."
         )
     )
-    prazo_dias: int | None = Field(
+    prazo_quantidade: int | None = Field(
         default=None,
         description=(
-            "Número de dias do prazo mencionado no texto, se houver. "
+            "Número mencionado no texto para o prazo (ex: 5, 15, 48). "
             "None se tem_prazo=False ou se o texto não especificar."
+        ),
+    )
+    unidade_prazo: Literal["dias_uteis", "horas"] | None = Field(
+        default=None,
+        description=(
+            "Unidade do prazo_quantidade. 'dias_uteis' é o padrão "
+            "processual mais comum (ex: 'prazo de 15 dias'). Use "
+            "'horas' quando o texto especificar explicitamente horas "
+            "(ex: '48 horas antes da sessão'). Nunca assuma dias_uteis "
+            "por padrão se o texto disser horas -- são cálculos "
+            "diferentes e confundir os dois pode gerar um prazo errado."
         ),
     )
     resumo_acao: str = Field(
@@ -54,7 +60,8 @@ class ClassificacaoPublicacao(BaseModel):
     confianca_alta: bool = Field(
         description=(
             "False se o texto for ambíguo, incompleto, ou se você não "
-            "tiver certeza razoável sobre tem_prazo/prazo_dias. Nesses "
-            "casos, é preferível marcar False a arriscar um palpite."
+            "tiver certeza razoável sobre tem_prazo/prazo_quantidade/"
+            "unidade_prazo. Nesses casos, é preferível marcar False a "
+            "arriscar um palpite."
         )
     )

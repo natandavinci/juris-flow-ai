@@ -1,4 +1,3 @@
-
 from datetime import date
 
 from langsmith import traceable
@@ -6,7 +5,7 @@ from langsmith import traceable
 from src.graph.state import GraphState
 from src.llm import get_chat_model
 from src.models.schemas import ClassificacaoPublicacao
-from src.utils.calendario import calcular_data_limite
+from src.utils.calendario import calcular_data_limite, calcular_limite_horas
 
 PROMPT_CLASSIFICACAO = """\
 Você é um assistente jurídico que analisa publicações do Diário de \
@@ -19,6 +18,11 @@ imediata, ou você não tiver certeza, marque tem_prazo=False e/ou \
 confianca_alta=False -- é preferível admitir incerteza a arriscar um \
 palpite errado, já que um erro aqui pode custar um prazo processual \
 real para o advogado.
+
+Preste atenção especial na UNIDADE do prazo: prazos processuais \
+tradicionais são em dias (geralmente úteis), mas alguns atos \
+específicos (ex: sustentação oral) são contados em horas corridas \
+antes de um evento. Não confunda os dois.
 
 Texto da publicação:
 ---
@@ -45,20 +49,31 @@ def rotear_apos_classificacao(state: GraphState) -> str:
     Decide se vale a pena calcular prazo ou encerrar por aqui.
     """
     classificacao = state["classificacao"]
-    if classificacao and classificacao.tem_prazo and classificacao.prazo_dias:
-        return "calcular_prazo"
-    return "fim"
+    tem_dados_suficientes = (
+        classificacao
+        and classificacao.tem_prazo
+        and classificacao.prazo_quantidade
+        and classificacao.unidade_prazo
+    )
+    return "calcular_prazo" if tem_dados_suficientes else "fim"
 
 
 @traceable(name="calcular_prazo")
 def node_calcular_prazo(state: GraphState) -> dict:
     classificacao = state["classificacao"]
     publicacao = state["publicacao"]
-
     data_disponibilizacao = date.fromisoformat(publicacao.data_disponibilizacao)
-    data_limite = calcular_data_limite(
-        data_inicio=data_disponibilizacao,
-        prazo_dias=classificacao.prazo_dias,
-    )
 
-    return {"data_limite_calculada": data_limite.isoformat()}
+    if classificacao.unidade_prazo == "dias_uteis":
+        data_limite = calcular_data_limite(
+            data_inicio=data_disponibilizacao,
+            prazo_dias=classificacao.prazo_quantidade,
+        )
+        return {"data_limite_calculada": data_limite.isoformat()}
+
+    # unidade_prazo == "horas"
+    limite_datetime = calcular_limite_horas(
+        data_inicio=data_disponibilizacao,
+        prazo_horas=classificacao.prazo_quantidade,
+    )
+    return {"data_limite_calculada": limite_datetime.isoformat()}

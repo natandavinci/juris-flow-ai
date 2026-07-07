@@ -9,10 +9,8 @@ tratado como uma ESTIMATIVA a confirmar por um humano antes de virar
 uma decisão real de prazo -- nunca a fonte final de verdade.
 """
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
-# Feriados nacionais fixos (data, sempre no mesmo dia todo ano).
-# Feriados móveis (Carnaval, Páscoa, Corpus Christi) ficam de fora
 FERIADOS_NACIONAIS_FIXOS = {
     (1, 1),   # Confraternização Universal
     (4, 21),  # Tiradentes
@@ -48,3 +46,20 @@ def calcular_data_limite(data_inicio: date, prazo_dias: int) -> date:
             dias_contados += 1
 
     return dia_atual
+
+
+def calcular_limite_horas(data_inicio: date, prazo_horas: int) -> datetime:
+    """
+    Soma `prazo_horas` corridas (não úteis) a partir da meia-noite de
+    `data_inicio`.
+
+    LIMITAÇÃO ADICIONAL desta função: a API do DJEN só nos dá a DATA
+    de disponibilização, não o horário exato em que a publicação foi
+    disponibilizada. Por isso assumimos meia-noite como ponto de
+    partida -- na prática, a contagem real pode começar mais tarde no
+    dia, o que tornaria o prazo real um pouco mais folgado do que o
+    calculado aqui. Prazo em horas SEMPRE deve ser tratado como menos
+    confiável que prazo em dias úteis, e sempre confirmado por humano.
+    """
+    inicio = datetime.combine(data_inicio, datetime.min.time())
+    return inicio + timedelta(hours=prazo_horas)
