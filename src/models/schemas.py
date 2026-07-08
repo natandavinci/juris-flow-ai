@@ -12,9 +12,10 @@ class PublicacaoDJEN(BaseModel):
 
     id_publicacao: int = Field(alias="id")
     numero_processo: str = Field(alias="numero_processo")
+    numero_processo_mascara: str | None = Field(
+        default=None, alias="numeroprocessocommascara"
+    )
     texto: str = Field(alias="texto")
-    # Nome real do campo na API (confirmado em execução real) -- não é
-    # "data_publicacao" como eu havia assumido antes de testar.
     data_disponibilizacao: str = Field(alias="data_disponibilizacao")
     hash_comunicacao: str = Field(alias="hash")
     sigla_tribunal: str | None = Field(default=None, alias="siglaTribunal")
