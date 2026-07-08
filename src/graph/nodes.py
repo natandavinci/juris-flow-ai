@@ -1,4 +1,10 @@
-from datetime import date
+"""
+Nós do grafo. Cada função aqui recebe o GraphState e devolve um dict
+com apenas os campos que ela alterou -- é assim que o LangGraph
+espera que um nó se comporte.
+"""
+
+from datetime import date, datetime, timedelta
 
 from langsmith import traceable
 
@@ -19,10 +25,24 @@ confianca_alta=False -- é preferível admitir incerteza a arriscar um \
 palpite errado, já que um erro aqui pode custar um prazo processual \
 real para o advogado.
 
-Preste atenção especial na UNIDADE do prazo: prazos processuais \
-tradicionais são em dias (geralmente úteis), mas alguns atos \
-específicos (ex: sustentação oral) são contados em horas corridas \
-antes de um evento. Não confunda os dois.
+Preste atenção especial em DOIS pontos que costumam ser confundidos:
+
+1) UNIDADE do prazo: prazos processuais tradicionais são em dias \
+(geralmente úteis), mas alguns atos específicos (ex: sustentação \
+oral) são contados em horas corridas.
+
+2) REFERÊNCIA do prazo -- este é o ponto mais importante: a maioria \
+dos prazos conta PARA FRENTE a partir de quando esta publicação foi \
+disponibilizada (referencia_prazo='disponibilizacao'). MAS alguns \
+textos mencionam um evento futuro (sessão de julgamento, audiência) \
+e pedem uma ação ANTES desse evento (ex: 'até 48 horas antes do \
+início da sessão do dia 13/07/2026 às 09:00') -- nesse caso é \
+referencia_prazo='evento_futuro', e você precisa extrair a data/hora \
+exata desse evento do texto, em data_evento_futuro. NUNCA trate um \
+prazo 'antes de um evento' como se fosse contado a partir da \
+disponibilização -- são cálculos opostos (um soma, o outro subtrai) \
+e confundir os dois já causou um erro real de mais de uma semana \
+numa execução anterior deste sistema.
 
 Texto da publicação:
 ---
@@ -49,19 +69,40 @@ def rotear_apos_classificacao(state: GraphState) -> str:
     Decide se vale a pena calcular prazo ou encerrar por aqui.
     """
     classificacao = state["classificacao"]
-    tem_dados_suficientes = (
+    if not (
         classificacao
         and classificacao.tem_prazo
         and classificacao.prazo_quantidade
         and classificacao.unidade_prazo
-    )
-    return "calcular_prazo" if tem_dados_suficientes else "fim"
+        and classificacao.referencia_prazo
+    ):
+        return "fim"
+
+    if (
+        classificacao.referencia_prazo == "evento_futuro"
+        and not classificacao.data_evento_futuro
+    ):
+        return "fim"
+
+    return "calcular_prazo"
 
 
 @traceable(name="calcular_prazo")
 def node_calcular_prazo(state: GraphState) -> dict:
     classificacao = state["classificacao"]
     publicacao = state["publicacao"]
+
+    if classificacao.referencia_prazo == "evento_futuro":
+        data_evento = datetime.fromisoformat(classificacao.data_evento_futuro)
+        horas = (
+            classificacao.prazo_quantidade
+            if classificacao.unidade_prazo == "horas"
+            else classificacao.prazo_quantidade * 24
+        )
+        data_limite = data_evento - timedelta(hours=horas)
+        return {"data_limite_calculada": data_limite.isoformat()}
+
+    
     data_disponibilizacao = date.fromisoformat(publicacao.data_disponibilizacao)
 
     if classificacao.unidade_prazo == "dias_uteis":
@@ -71,7 +112,6 @@ def node_calcular_prazo(state: GraphState) -> dict:
         )
         return {"data_limite_calculada": data_limite.isoformat()}
 
-    # unidade_prazo == "horas"
     limite_datetime = calcular_limite_horas(
         data_inicio=data_disponibilizacao,
         prazo_horas=classificacao.prazo_quantidade,

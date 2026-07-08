@@ -52,6 +52,29 @@ class ClassificacaoPublicacao(BaseModel):
             "diferentes e confundir os dois pode gerar um prazo errado."
         ),
     )
+    referencia_prazo: Literal["disponibilizacao", "evento_futuro"] | None = Field(
+        default=None,
+        description=(
+            "Como contar o prazo. 'disponibilizacao': conta PARA FRENTE "
+            "a partir da data em que esta publicação foi disponibilizada "
+            "(o padrão mais comum, ex: 'manifeste-se em 5 dias'). "
+            "'evento_futuro': conta PARA TRÁS a partir de uma data/hora "
+            "de um evento futuro mencionado NO PRÓPRIO TEXTO (ex: "
+            "'até 48 horas antes do início da sessão do dia 13/07/2026 "
+            "às 09:00' -- aqui o prazo NÃO tem relação com a data de "
+            "disponibilização, e sim com a data do evento citado)."
+        ),
+    )
+    data_evento_futuro: str | None = Field(
+        default=None,
+        description=(
+            "Preencha APENAS quando referencia_prazo='evento_futuro'. "
+            "Data e hora do evento mencionado no texto (audiência, "
+            "sessão de julgamento, perícia), no formato "
+            "'YYYY-MM-DDTHH:MM:SS'. Extraia exatamente do texto -- "
+            "nunca calcule ou estime essa data."
+        ),
+    )
     resumo_acao: str = Field(
         description=(
             "Resumo em 1-2 frases, em português simples (sem juridiquês "
